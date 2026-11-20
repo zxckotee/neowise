@@ -8,7 +8,12 @@
     body { max-width: 40rem; margin: 2rem auto; padding: 0 1rem; font: 1rem/1.5 system-ui, sans-serif; }
     textarea { box-sizing: border-box; display: block; width: 100%; margin: .5rem 0; padding: .5rem; font: inherit; }
     button { padding: .4rem .8rem; font: inherit; }
-    pre { white-space: pre-wrap; }
+    #result { margin-top: 1rem; }
+    .ready-block { margin: .75rem 0; padding: .75rem; border: 1px solid #ccc; border-radius: .25rem; }
+    .ready-block h2 { margin: 0 0 .5rem; font-size: 1rem; }
+    .manual-review { padding: .75rem; border: 1px solid #c90; background: #fff8e6; border-radius: .25rem; }
+    .invalid-input { padding: .75rem; border: 1px solid #c00; background: #fff0f0; border-radius: .25rem; }
+    .pending { color: #666; }
   </style>
 </head>
 <body>
@@ -18,18 +23,62 @@
     <textarea id="message" rows="4"></textarea>
     <button type="submit">Разобрать заявку</button>
   </form>
-  <pre id="result" aria-live="polite"></pre>
+  <div id="result" aria-live="polite"></div>
   <script type="module">
     const form = document.querySelector("form");
     const result = document.querySelector("#result");
+
+    const topicLabels = {
+      delivery: "Доставка",
+      pricing: "Цены и стоимость",
+      other: "Прочее",
+    };
+
+    function renderReady(data) {
+      const label = topicLabels[data.topic] ?? data.topic;
+      result.innerHTML = `
+        <div class="ready-block">
+          <h2>Тема</h2>
+          <p>${escapeHtml(label)}</p>
+        </div>
+        <div class="ready-block">
+          <h2>Черновик ответа</h2>
+          <p>${escapeHtml(data.draft)}</p>
+        </div>`;
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      result.innerHTML = '<p class="pending">Обрабатываем заявку…</p>';
       const reply = await fetch("/api/triage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: document.querySelector("#message").value }),
       });
-      result.textContent = JSON.stringify(await reply.json(), null, 2);
+      const data = await reply.json();
+      if (reply.status === 400 || data.status === "invalid_input") {
+        result.innerHTML =
+          '<p class="invalid-input">Введите непустой текст заявки и попробуйте снова.</p>';
+        return;
+      }
+      if (data.status === "manual_review") {
+        result.innerHTML =
+          '<p class="manual-review">Авторазбор недоступен — ответьте клиенту вручную.</p>';
+        return;
+      }
+      if (data.status === "ready") {
+        renderReady(data);
+        return;
+      }
+      result.textContent = "Неожиданный ответ сервера.";
     });
   </script>
 </body>
