@@ -12,6 +12,12 @@ node server.mjs
 
 Откройте http://127.0.0.1:3000. Порт можно задать через переменную `PORT`.
 
+## Тесты
+
+```sh
+NODE_ENV=test node --test test/triage.test.mjs
+```
+
 ## Что изменить
 
 1. Доработайте `POST /api/triage`. Принимайте JSON с полем `text`, содержащим непустую строку. При пустом, отсутствующем, нестроковом вводе или битом JSON верните HTTP 400 и `{"status":"invalid_input"}`.
