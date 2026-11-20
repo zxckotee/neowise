@@ -73,7 +73,8 @@ async function handleTriage(request, response) {
 const listen = process.env.NODE_ENV !== "test";
 
 if (listen) {
-  createServer(async (request, response) => {
+  const port = Number(process.env.PORT || 3000);
+  const server = createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/") {
       response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       response.end(html);
@@ -87,5 +88,16 @@ if (listen) {
     } catch {
       json(response, 500, { status: "server_error" });
     }
-  }).listen(Number(process.env.PORT || 3000), "127.0.0.1");
+  });
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `Порт ${port} занят. Остановите другой процесс (например, предыдущий node server.mjs) или запустите: PORT=${port + 1} node server.mjs`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+    throw err;
+  });
+  server.listen(port, "127.0.0.1");
 }
